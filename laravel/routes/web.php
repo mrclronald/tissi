@@ -18,4 +18,6 @@ Route::get('/', function () {
 Route::get('/upload', 'UploadController@index');
 Route::post('/upload', 'UploadController@uploadSheet');
 Route::get('/export', 'ExportController@index');
-Route::post('/export', 'ExportController@exportSheet');
+//Route::post('/export', 'ExportController@exportSheet');
+
+Route::post('/export', 'ExportController@exportFromDb');

@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Transaction;
 use App\TransactionListImport;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Input;
 use Maatwebsite\Excel\Facades\Excel;
@@ -12,23 +14,14 @@ class ExportController extends Controller
 
     private $ltoSummaryHeaders = [
         'transaction_number' => 'NO.', // numbering only
-        'vehicle_class_id' => 'MV PLATE NO.',
+        'plate_number' => 'MV PLATE NO.',
         'vehicle_class_name_private' => 'MV TYPE (Private/ For-Hire/ Gov.t\' / Diplomat)', // Manual
-        'vehicle_class_name' => 'MV TYPE (Bus/ Jeepney/ Van/ Truck etc.)',
+        'type' => 'MV TYPE (Bus/ Jeepney/ Van/ Truck etc.)',
         'trade_name' => 'TRADE NAME', // Manual
         'year_model' => 'YEAR MODEL', // Manual
         'axle_load' => 'GVW/Axle Load', // computed, it's either axle or gvw or axle / gvw
         'remarks' => 'REMARKS (Passed or Failed)', // computed
-        'action' => 'ACTION TAKEN CONFISCATED ITEMS/ IMPOUNDED MV',
-        'gvw_axle' => ' GVW / AXLE'
-    ];
-
-    private $weeklySummaryHeaders = [
-
-    ];
-
-    private $monthlySummaryHeaders = [
-
+        'action' => 'ACTION TAKEN CONFISCATED ITEMS/ IMPOUNDED MV'
     ];
 
     private $templates = [
@@ -47,12 +40,37 @@ class ExportController extends Controller
         return view('export', ['directories' => $directories, 'templates' => $this->templates]);
     }
 
+    public function exportFromDb(Request $request)
+    {
+        $fromDate = $request->get('from_date');
+        $toDate = $request->get('to_date');
+
+        $transactions = Transaction::whereBetween('date', [$fromDate, $toDate])->get();
+
+        $chunkedResults = array_chunk($transactions->toArray(), 25);
+
+        $chunkeData = [];
+        foreach ($chunkedResults as $results) {
+            $chunkeData[] = $this->prepareData($results);
+        }
+
+        $data = $this->prepareData($chunkeData);
+
+        $summaryReport = $this->getSummaryReport($data);
+
+        $summaryReport->export('xls');
+    }
+
     public function exportSheet(TransactionListImport $import)
     {
         $this->filename = public_path('transactions') . '/' . Input::post('filename');
-        $results = $import->takeRows(100)->toArray();
+        $results = $import->takeRows(50)->toArray();
+        $chunkedResults = array_chunk($results, 25);
 
-        $data = $this->prepareData($results);
+        $data = [];
+        foreach ($chunkedResults as $results) {
+            $data[] = $this->prepareData($results);
+        }
 
         $summaryReport = $this->getSummaryReport($data, Input::post('template'));
 
@@ -61,12 +79,6 @@ class ExportController extends Controller
 
     private function getSummaryReport($data, $template = 'lto')
     {
-        if ($template === 'weekly') {
-            return $this->getWeeklySummaryReport($data);
-        } else if ($template === 'monthly') {
-            return $this->getMonthlySummaryReport($data);
-        }
-
         return $this->getLtoSummaryReport($data);
     }
 
@@ -101,57 +113,13 @@ class ExportController extends Controller
                 $excel->setTitle('SUMMARY REPORT OF ANTI-OVERLOADING OPERATION');
 
                 $sheet = $excel->setActiveSheetIndex(0);
-                $sheet->fromArray($data, null, 'A7');
 
-            }
-        );
-    }
-
-    private function getWeeklySummaryReport($data)
-    {
-        return Excel::create(
-            'Weekly Summary Report', function ($excel) use ($data) {
-
-                // Set the title
-                $excel->setTitle('WEEKLY SUMMARY REPORT OF ANTI-OVERLOADING OPERATION');
-
-                // Chain the setters
-                $excel->setCreator('TISSI')->setCompany('TISSI');
-
-                // Call them separately
-                $excel->setDescription('A demonstration to change the file properties');
-
-                $excel->sheet(
-                    '6AM-2PM MAL', function ($sheet) use ($data) {
-                        $sheet->fromArray($data);
-                    }
-                );
-
-            }
-        );
-    }
-
-    private function getMonthlySummaryReport($data)
-    {
-        return Excel::create(
-            'Monthly Summary Report', function ($excel) use ($data) {
-
-                // Set the title
-                $excel->setTitle('SUMMARY REPORT OF ANTI-OVERLOADING OPERATION');
-
-                // Chain the setters
-                $excel->setCreator('TISSI')->setCompany('TISSI');
-
-                // Call them separately
-                $excel->setDescription('A demonstration to change the file properties');
-
-                $excel->sheet(
-                    '6AM-2PM MAL', function ($sheet) use ($data) {
-                        $sheet->fromArray($data);
-                    }
-                );
-
-            }
-        );
+                $start = 7;
+                foreach ($data as $datum) {
+                    $cell = 'A' . $start;
+                    $sheet->fromArray($datum, null, $cell);
+                    $start+=32;
+                }
+        });
     }
 }
