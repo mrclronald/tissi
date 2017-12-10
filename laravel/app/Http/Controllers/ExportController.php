@@ -11,14 +11,14 @@ class ExportController extends Controller
 {
 
     private $ltoSummaryHeaders = [
-        'transaction_number' => 'NO.',
-        'serial_number' => 'MV PLATE NO.',
-        'mv_type_private' => 'MV TYPE (Private/ For-Hire/ Gov.t\' / Diplomat)',
-        'mv_type_public' => 'MV TYPE (Bus/ Jeepney/ Van/ Truck etc.)',
-        'trade_name' => 'TRADE NAME',
-        'year_model' => 'YEAR MODEL',
-        'axle_load' => 'GVW/Axle Load',
-        'remarks' => 'REMARKS (Passed or Failed)',
+        'transaction_number' => 'NO.', // numbering only
+        'vehicle_class_id' => 'MV PLATE NO.',
+        'vehicle_class_name_private' => 'MV TYPE (Private/ For-Hire/ Gov.t\' / Diplomat)', // Manual
+        'vehicle_class_name' => 'MV TYPE (Bus/ Jeepney/ Van/ Truck etc.)',
+        'trade_name' => 'TRADE NAME', // Manual
+        'year_model' => 'YEAR MODEL', // Manual
+        'axle_load' => 'GVW/Axle Load', // computed, it's either axle or gvw or axle / gvw
+        'remarks' => 'REMARKS (Passed or Failed)', // computed
         'action' => 'ACTION TAKEN CONFISCATED ITEMS/ IMPOUNDED MV',
         'gvw_axle' => ' GVW / AXLE'
     ];
@@ -50,7 +50,7 @@ class ExportController extends Controller
     public function exportSheet(TransactionListImport $import)
     {
         $this->filename = public_path('transactions') . '/' . Input::post('filename');
-        $results = $import->takeRows(25)->toArray();
+        $results = $import->takeRows(100)->toArray();
 
         $data = $this->prepareData($results);
 
