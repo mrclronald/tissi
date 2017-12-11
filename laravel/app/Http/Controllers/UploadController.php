@@ -52,6 +52,11 @@ class UploadController extends Controller
                         continue;
                     }
 
+                    if ($k === 'vehicle_class_name') {
+                        $dataImported[$key][$mapper] = date("j-n", strtotime($data[$k]));
+                        continue;
+                    }
+
                     $dataImported[$key][$mapper] = $data[$k];
                 }
             }

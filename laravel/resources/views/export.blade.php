@@ -11,14 +11,6 @@
         <input class="form-control" type="text" name="to_date" />
     </div>
     <div class="form-group">
-        <label for="filename">File</label>
-        <select class="form-control" name="filename" id="filename">
-            @foreach ($directories as $directory)
-                <option value="{{$directory->getFileName()}}">{{$directory->getFileName()}}</option>
-            @endforeach
-        </select>
-    </div>
-    <div class="form-group">
         <label for="template">Template</label>
         <select class="form-control" name="template" id="template">
             @foreach($templates as $value => $template)

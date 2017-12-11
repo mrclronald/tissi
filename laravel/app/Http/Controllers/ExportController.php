@@ -18,10 +18,12 @@ class ExportController extends Controller
         'vehicle_class_name_private' => 'MV TYPE (Private/ For-Hire/ Gov.t\' / Diplomat)', // Manual
         'type' => 'MV TYPE (Bus/ Jeepney/ Van/ Truck etc.)',
         'trade_name' => 'TRADE NAME', // Manual
+        'blank' => '',  
         'year_model' => 'YEAR MODEL', // Manual
-        'axle_load' => 'GVW/Axle Load', // computed, it's either axle or gvw or axle / gvw
+        'axle_load' => 'GVW / Axle Load', // computed, it's either axle or gvw or axle / gvw
         'remarks' => 'REMARKS (Passed or Failed)', // computed
-        'action' => 'ACTION TAKEN CONFISCATED ITEMS/ IMPOUNDED MV'
+        'action' => 'ACTION TAKEN CONFISCATED ITEMS/ IMPOUNDED MV',
+        'gvw_or_axle' => ' GVW / AXLE'
     ];
 
     private $templates = [
@@ -49,33 +51,30 @@ class ExportController extends Controller
 
         $chunkedResults = array_chunk($transactions->toArray(), 25);
 
-        $chunkeData = [];
+        $data = [];
         foreach ($chunkedResults as $results) {
-            $chunkeData[] = $this->prepareData($results);
+            $data[] = $this->prepareData($results);
         }
-
-        $data = $this->prepareData($chunkeData);
-
         $summaryReport = $this->getSummaryReport($data);
 
         $summaryReport->export('xls');
     }
 
-    public function exportSheet(TransactionListImport $import)
-    {
-        $this->filename = public_path('transactions') . '/' . Input::post('filename');
-        $results = $import->takeRows(50)->toArray();
-        $chunkedResults = array_chunk($results, 25);
+    // public function exportSheet(TransactionListImport $import)
+    // {
+    //     $this->filename = public_path('transactions') . '/' . Input::post('filename');
+    //     $results = $import->takeRows(50)->toArray();
+    //     $chunkedResults = array_chunk($results, 25);
 
-        $data = [];
-        foreach ($chunkedResults as $results) {
-            $data[] = $this->prepareData($results);
-        }
+    //     $data = [];
+    //     foreach ($chunkedResults as $results) {
+    //         $data[] = $this->prepareData($results);
+    //     }
 
-        $summaryReport = $this->getSummaryReport($data, Input::post('template'));
+    //     $summaryReport = $this->getSummaryReport($data, Input::post('template'));
 
-        $summaryReport->export('xls');
-    }
+    //     $summaryReport->export('xls');
+    // }
 
     private function getSummaryReport($data, $template = 'lto')
     {
@@ -111,14 +110,13 @@ class ExportController extends Controller
         return Excel::load(public_path('lto-template.xlsx'), function ($excel) use ($data) {
                 // Set the title
                 $excel->setTitle('SUMMARY REPORT OF ANTI-OVERLOADING OPERATION');
-
                 $sheet = $excel->setActiveSheetIndex(0);
 
                 $start = 7;
                 foreach ($data as $datum) {
                     $cell = 'A' . $start;
                     $sheet->fromArray($datum, null, $cell);
-                    $start+=32;
+                    $start+=35;
                 }
         });
     }
