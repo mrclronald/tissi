@@ -17,8 +17,15 @@ class CreateTransactionsTable extends Migration
             $table->increments('id');
             $table->string('plate_number');
             $table->string('type');
-            $table->string('gvw');
-            $table->string('axle_load');
+            $table->double('gvw');
+            $table->double('axle_load_1');
+            $table->double('axle_load_2');
+            $table->double('axle_load_3');
+            $table->double('axle_load_4');
+            $table->double('axle_load_5');
+            $table->double('axle_load_6');
+            $table->double('axle_load_7');
+            $table->double('axle_load_8');
             $table->string('area_of_operation');
             $table->string('affiliation');
             $table->date('date');

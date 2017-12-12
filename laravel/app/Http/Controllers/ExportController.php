@@ -60,22 +60,6 @@ class ExportController extends Controller
         $summaryReport->export('xls');
     }
 
-    // public function exportSheet(TransactionListImport $import)
-    // {
-    //     $this->filename = public_path('transactions') . '/' . Input::post('filename');
-    //     $results = $import->takeRows(50)->toArray();
-    //     $chunkedResults = array_chunk($results, 25);
-
-    //     $data = [];
-    //     foreach ($chunkedResults as $results) {
-    //         $data[] = $this->prepareData($results);
-    //     }
-
-    //     $summaryReport = $this->getSummaryReport($data, Input::post('template'));
-
-    //     $summaryReport->export('xls');
-    // }
-
     private function getSummaryReport($data, $template = 'lto')
     {
         return $this->getLtoSummaryReport($data);
@@ -84,9 +68,40 @@ class ExportController extends Controller
     private function applyMappers($rawData, $mappers = [])
     {
         $newData = [];
+        $maxAllowableGvw = [
+            '1-1' => '18000',
+            '1-2' => '33300',
+            '1-3' => '35600',
+            '11-1' => '34000',
+            '11-2' => '40600',
+            '11-3' => '41000',
+            '12-1' => '39700',
+            '12-2' => '41500',
+            '12-3' => '42000',
+            '11-11' => '39700',
+            '11-12' => '43500',
+            '12-11' => '43500',
+            '12-12' => '45000',
+        ];
 
         foreach ($rawData as $key => $data) {
             foreach ($mappers as $k => $mapper) {
+                // axle_load
+                if ($k === 'axle_load') {
+                    // you can use axle_load_1, axle_load_2, axle_load_3, ...
+                    $value = 'test';
+                    $newData[$key][$mapper] = $value;
+                    continue;
+                }                
+
+                // gvw_or_axle
+                if ($k === 'gvw_or_axle' && ! empty($data['type'])) {
+                    // you can use axle_load_1, axle_load_2, axle_load_3, ...
+                    $value = ($data['gvw'] > $maxAllowableGvw[$data['type']] ? 'GVW' : 'AXLE');
+                    $newData[$key][$mapper] = $value;
+                    continue;
+                }
+
                 $newData[$key][$mapper] = isset($data[$k])
                     ? $data[$k]
                     : '';
@@ -98,9 +113,7 @@ class ExportController extends Controller
 
     private function prepareData($rawData)
     {
-        $mappers = $this->ltoSummaryHeaders;
-
-        $preparedData = $this->applyMappers($rawData, $mappers);
+        $preparedData = $this->applyMappers($rawData, $this->ltoSummaryHeaders);
 
         return $preparedData;
     }
