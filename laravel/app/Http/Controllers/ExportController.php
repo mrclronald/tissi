@@ -18,12 +18,28 @@ class ExportController extends Controller
         'vehicle_class_name_private' => 'MV TYPE (Private/ For-Hire/ Gov.t\' / Diplomat)', // Manual
         'type' => 'MV TYPE (Bus/ Jeepney/ Van/ Truck etc.)',
         'trade_name' => 'TRADE NAME', // Manual
-        'blank' => '',  
+        'blank' => '',
         'year_model' => 'YEAR MODEL', // Manual
-        'axle_load' => 'GVW / Axle Load', // computed, it's either axle or gvw or axle / gvw
+        'axle_load' => 'GVW_Axle_Load', // computed, it's either axle or gvw or axle / gvw
         'remarks' => 'REMARKS (Passed or Failed)', // computed
         'action' => 'ACTION TAKEN CONFISCATED ITEMS/ IMPOUNDED MV',
-        'gvw_or_axle' => ' GVW / AXLE'
+        'gvw_or_axle' => ' GVW / AXLE' //computed
+    ];
+
+    private $maxAllowableGvw = [
+        '1-1' => '18000',
+        '1-2' => '33300',
+        '1-3' => '35600',
+        '11-1' => '34000',
+        '11-2' => '40600',
+        '11-3' => '41000',
+        '12-1' => '39700',
+        '12-2' => '41500',
+        '12-3' => '42000',
+        '11-11' => '39700',
+        '11-12' => '43500',
+        '12-11' => '43500',
+        '12-12' => '45000',
     ];
 
     private $templates = [
@@ -68,36 +84,58 @@ class ExportController extends Controller
     private function applyMappers($rawData, $mappers = [])
     {
         $newData = [];
-        $maxAllowableGvw = [
-            '1-1' => '18000',
-            '1-2' => '33300',
-            '1-3' => '35600',
-            '11-1' => '34000',
-            '11-2' => '40600',
-            '11-3' => '41000',
-            '12-1' => '39700',
-            '12-2' => '41500',
-            '12-3' => '42000',
-            '11-11' => '39700',
-            '11-12' => '43500',
-            '12-11' => '43500',
-            '12-12' => '45000',
-        ];
-
+        // $data['type'] --> '1-1'
+        // $this->maxAllowableGvw[$data['type']] --> 18000
+        // $this->maxAllowableGvw['1-1'] --> 18000
         foreach ($rawData as $key => $data) {
             foreach ($mappers as $k => $mapper) {
                 // axle_load
-                if ($k === 'axle_load') {
-                    // you can use axle_load_1, axle_load_2, axle_load_3, ...
-                    $value = 'test';
-                    $newData[$key][$mapper] = $value;
+                if ($k === 'axle_load' && ! empty($data['type'])) {
+                    $value = $data['gvw'];
+                    $overWeightAxles = [];
+
+                    foreach (range(1, 8) as $axleNumber) {
+                        if ($data['axle_load_' . $axleNumber] > 13500) {
+                            $overWeightAxles[] = $data['axle_load_' . $axleNumber];
+                        }
+                    }
+            
+                    $newData[$key][$mapper] = $value . (count($overWeightAxles) ? '/' : '') .implode(',', $overWeightAxles);
                     continue;
-                }                
+                }
 
                 // gvw_or_axle
                 if ($k === 'gvw_or_axle' && ! empty($data['type'])) {
-                    // you can use axle_load_1, axle_load_2, axle_load_3, ...
-                    $value = ($data['gvw'] > $maxAllowableGvw[$data['type']] ? 'GVW' : 'AXLE');
+                    $isThereAnoverWeightAxles = false;
+                    //test to see if one of the axle loads is overweight
+                    $isThereAnoverWeightAxles = $data['axle_load_1'] > 13500
+                        || $data['axle_load_2'] > 13500
+                        || $data['axle_load_3'] > 13500
+                        || $data['axle_load_4'] > 13500
+                        || $data['axle_load_5'] > 13500
+                        || $data['axle_load_6'] > 13500
+                        || $data['axle_load_7'] > 13500
+                        || $data['axle_load_8'] > 13500;
+
+                    $isGvwOverWeight = $data['gvw'] > $this->maxAllowableGvw[$data['type']];
+
+                    if ($isGvwOverWeight && $isThereAnoverWeightAxles) {
+                        // If both has overweight
+                        $value = 'BOTH';
+                    } else {
+                        // if one of them is not overweight
+                        $value = $isThereAnoverWeightAxles
+                            ? 'AXLE'
+                            : ($isGvwOverWeight ? 'GVW' : '');
+                    }
+
+                    $newData[$key][$mapper] = $value;
+                    continue;
+                }
+                
+                // remarks column for passed or failed
+                if ($k === 'remarks') {
+                    $value = ! empty($newData[$key][$mappers['axle_load']]) ? 'FAILED': 'PASSED';
                     $newData[$key][$mapper] = $value;
                     continue;
                 }
@@ -126,11 +164,11 @@ class ExportController extends Controller
                 $sheet = $excel->setActiveSheetIndex(0);
 
                 $start = 7;
-                foreach ($data as $datum) {
-                    $cell = 'A' . $start;
-                    $sheet->fromArray($datum, null, $cell);
-                    $start+=35;
-                }
+            foreach ($data as $datum) {
+                $cell = 'A' . $start;
+                $sheet->fromArray($datum, null, $cell);
+                $start+=35;
+            }
         });
     }
 }
