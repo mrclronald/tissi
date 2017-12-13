@@ -42,10 +42,26 @@ class ExportController extends Controller
         '12-12' => '45000',
     ];
 
+    private $maxAllowableGvwExempted = [
+        '12-2',
+        '12-3'
+    ];
+
     private $templates = [
         'lto' => 'LTO Summary Report',
         'weekly' => 'Weekly Summary Report',
         'monthly' => 'Monthly Summary Report'
+    ];
+
+    private $axleLoadKeys = [
+        'axle_load_1',
+        'axle_load_2',
+        'axle_load_3',
+        'axle_load_4',
+        'axle_load_5',
+        'axle_load_6',
+        'axle_load_7',
+        'axle_load_8'
     ];
 
     private $filename;
@@ -88,15 +104,18 @@ class ExportController extends Controller
         // $this->maxAllowableGvw[$data['type']] --> 18000
         // $this->maxAllowableGvw['1-1'] --> 18000
         foreach ($rawData as $key => $data) {
+
+            // We decalared this variable here so we can use it in gvw_or_axle in the loop
+            $overWeightAxles = [];
             foreach ($mappers as $k => $mapper) {
+
                 // axle_load
                 if ($k === 'axle_load' && ! empty($data['type'])) {
                     $value = $data['gvw'];
-                    $overWeightAxles = [];
 
-                    foreach (range(1, 8) as $axleNumber) {
-                        if ($data['axle_load_' . $axleNumber] > 13500) {
-                            $overWeightAxles[] = $data['axle_load_' . $axleNumber];
+                    foreach ($this->axleLoadKeys as $axleLoadKey) {
+                        if ($data[$axleLoadKey] > 13500) {
+                            $overWeightAxles[] = $data[$axleLoadKey];
                         }
                     }
             
@@ -106,25 +125,15 @@ class ExportController extends Controller
 
                 // gvw_or_axle
                 if ($k === 'gvw_or_axle' && ! empty($data['type'])) {
-                    $isThereAnoverWeightAxles = false;
-                    //test to see if one of the axle loads is overweight
-                    $isThereAnoverWeightAxles = $data['axle_load_1'] > 13500
-                        || $data['axle_load_2'] > 13500
-                        || $data['axle_load_3'] > 13500
-                        || $data['axle_load_4'] > 13500
-                        || $data['axle_load_5'] > 13500
-                        || $data['axle_load_6'] > 13500
-                        || $data['axle_load_7'] > 13500
-                        || $data['axle_load_8'] > 13500;
 
                     $isGvwOverWeight = $data['gvw'] > $this->maxAllowableGvw[$data['type']];
 
-                    if ($isGvwOverWeight && $isThereAnoverWeightAxles) {
-                        // If both has overweight
+                    if ($isGvwOverWeight && count($overWeightAxles)) {
+                        // If both is/has overweight
                         $value = 'BOTH';
                     } else {
-                        // if one of them is not overweight
-                        $value = $isThereAnoverWeightAxles
+                        // if one of them is/has not overweight
+                        $value = count($overWeightAxles)
                             ? 'AXLE'
                             : ($isGvwOverWeight ? 'GVW' : '');
                     }
@@ -135,7 +144,7 @@ class ExportController extends Controller
                 
                 // remarks column for passed or failed
                 if ($k === 'remarks') {
-                    $value = ! empty($newData[$key][$mappers['axle_load']]) ? 'FAILED': 'PASSED';
+                    $value = ! empty($newData[$key][$mappers['gvw_or_axle']]) ? 'FAILED': 'PASSED';
                     $newData[$key][$mapper] = $value;
                     continue;
                 }
