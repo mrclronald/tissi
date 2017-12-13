@@ -1,0 +1,15 @@
+/laravel/node_modules
+/laravel/public/hot
+/laravel/public/storage
+/laravel/storage/*.key
+/laravel/storage/framework/sessions/*
+/laravel/storage/framework/views/*
+/laravel/storage/framework/cache/*
+/laravel/vendor
+/laravel/.idea
+/laravel/.vagrant
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+.env

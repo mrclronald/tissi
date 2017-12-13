@@ -97,6 +97,11 @@ class ExportController extends Controller
         return $this->getLtoSummaryReport($data);
     }
 
+    private function highlightRow($cells, $color)
+    {
+        $cells->setBackground($color);
+    }
+
     private function applyMappers($rawData, $mappers = [])
     {
         $newData = [];
@@ -119,7 +124,10 @@ class ExportController extends Controller
                         }
                     }
             
-                    $newData[$key][$mapper] = $value . (count($overWeightAxles) ? '/' : '') .implode(',', $overWeightAxles);
+                    $newData[$key][$mapper] = $value
+                        . (count($overWeightAxles) ? '/ (' : '')
+                        . implode(',', $overWeightAxles)
+                        . (count($overWeightAxles) ? ')' : '');
                     continue;
                 }
 
@@ -139,13 +147,7 @@ class ExportController extends Controller
                     }
 
                     $newData[$key][$mapper] = $value;
-                    continue;
-                }
-                
-                // remarks column for passed or failed
-                if ($k === 'remarks') {
-                    $value = ! empty($newData[$key][$mappers['gvw_or_axle']]) ? 'FAILED': 'PASSED';
-                    $newData[$key][$mapper] = $value;
+                    $newData[$key][$mappers['remarks']] = ! empty($value) ? 'FAILED' : 'PASSED';
                     continue;
                 }
 
