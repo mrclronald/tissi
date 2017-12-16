@@ -20,9 +20,9 @@
         <style>
             html, body {
                 background-color: #fff;
-                color: #636b6f;
+                color: #000000;
                 font-family: 'Raleway', sans-serif;
-                font-weight: 100;
+                font-weight: bold;
                 height: 100vh;
                 margin: 0;
             }
@@ -68,6 +68,17 @@
             .m-b-md {
                 margin-bottom: 30px;
             }
+
+            .form-control {
+                color: #000;
+                font-weight: bold;
+            }
+
+            .form-control option {
+                 color: #000;
+                 font-weight: bold;
+             }
+
         </style>
     </head>
     <body>

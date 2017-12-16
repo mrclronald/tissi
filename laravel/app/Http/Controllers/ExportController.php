@@ -3,11 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Transaction;
-use App\TransactionListImport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Input;
 use Maatwebsite\Excel\Facades\Excel;
+use PHPExcel_Style_Border;
+use PHPExcel_Style_Fill;
 
 class ExportController extends Controller
 {
@@ -53,6 +53,17 @@ class ExportController extends Controller
         'monthly' => 'Monthly Summary Report'
     ];
 
+    private $areaOfOperations = [
+        'pacheco' =>'R-10 PACHECO',
+        'lingahan' =>'R-11 LINGAHAN'
+    ];
+
+    private $teamOrAffiliations = [
+        'ncr' =>'DPWH-NCR-NORTH MANILA ENGINEERING DISTRICT',
+        'region _1' =>'DPWH-REGION 1-NORTH VISAYA ENGINEERING DISTRICT',
+        'region _2' =>'DPWH-REGION 2-NORTH MINDANAO ENGINEERING DISTRICT'
+    ];
+
     private $axleLoadKeys = [
         'axle_load_1',
         'axle_load_2',
@@ -64,20 +75,34 @@ class ExportController extends Controller
         'axle_load_8'
     ];
 
+    private $failedRows = [];
+
+    private $failedExemptedRows = [];
+
     private $filename;
+
+    private $count = 1;
 
 
     public function index()
     {
         $directories = File::files(public_path('transactions'));
 
-        return view('export', ['directories' => $directories, 'templates' => $this->templates]);
+        return view('export', [
+            'directories' => $directories,
+            'templates' => $this->templates,
+            'areaOfOperations' => $this->areaOfOperations,
+            'teamOrAffiliations' => $this->teamOrAffiliations,
+        ]);
     }
 
     public function exportFromDb(Request $request)
     {
         $fromDate = $request->get('from_date');
         $toDate = $request->get('to_date');
+
+        $areaOfOperation = $request->get('areaOfOperation');
+        $teamOrAffiliation = $request->get('teamOrAffiliation');
 
         $transactions = Transaction::whereBetween('date', [$fromDate, $toDate])->get();
 
@@ -102,18 +127,20 @@ class ExportController extends Controller
         $cells->setBackground($color);
     }
 
-    private function applyMappers($rawData, $mappers = [])
+    private function applyMappers($transactionsData, $mappers = [])
     {
         $newData = [];
-        // $data['type'] --> '1-1'
-        // $this->maxAllowableGvw[$data['type']] --> 18000
-        // $this->maxAllowableGvw['1-1'] --> 18000
-        foreach ($rawData as $key => $data) {
-
+        foreach ($transactionsData as $key => $data) {
             // We decalared this variable here so we can use it in gvw_or_axle in the loop
             $overWeightAxles = [];
+            $newData[$key][$mappers['transaction_number']] = $this->count;
+
             foreach ($mappers as $k => $mapper) {
 
+                if ($k === 'transaction_number') {
+                    continue;
+                }
+                
                 // axle_load
                 if ($k === 'axle_load' && ! empty($data['type'])) {
                     $value = $data['gvw'];
@@ -146,6 +173,15 @@ class ExportController extends Controller
                             : ($isGvwOverWeight ? 'GVW' : '');
                     }
 
+                    // If not empty, assign to failed array
+                    if (! empty($value)) {
+                        if (in_array($data['type'], ['12-2', '12-3'])) {
+                            $this->failedExemptedRows[] = $this->count;
+                        } else {
+                            $this->failedRows[] = $this->count;
+                        }
+                    }
+                    
                     $newData[$key][$mapper] = $value;
                     $newData[$key][$mappers['remarks']] = ! empty($value) ? 'FAILED' : 'PASSED';
                     continue;
@@ -155,6 +191,8 @@ class ExportController extends Controller
                     ? $data[$k]
                     : '';
             }
+
+            $this->count++;
         }
 
         return $newData;
@@ -169,17 +207,68 @@ class ExportController extends Controller
 
     private function getLtoSummaryReport($data)
     {
-        return Excel::load(public_path('lto-template.xlsx'), function ($excel) use ($data) {
+        return Excel::create('LTO Summary Report', function ($excel) use ($data) {
                 // Set the title
-                $excel->setTitle('SUMMARY REPORT OF ANTI-OVERLOADING OPERATION');
-                $sheet = $excel->setActiveSheetIndex(0);
+            $excel->setTitle('SUMMARY REPORT OF ANTI-OVERLOADING OPERATION');
+
+            $excel->sheet('test', function ($sheet) use ($data) {
+
+                // Font family
+                $sheet->setFontFamily('Times New Roman');
+
+                // Font size
+                $sheet->setFontSize(11);
+
+                // Font bold
+                $sheet->setFontBold(false);
+
+
+                $sheet->setAllBorders(PHPExcel_Style_Border::BORDER_THIN);
+
+                $sheet->setBorder('A3:K3', PHPExcel_Style_Border::BORDER_NONE);
+
+                // Add header
+                array_unshift($data, $this->ltoSummaryHeaders);
+
+                // Blank
+                array_unshift($data, ['blank']);
+
+                // informations
+                array_unshift($data, ['informations']);
+
+                // title
+                array_unshift($data, ['title']);
+
+                foreach ($this->failedRows as $failedRow) {
+                    $cellNumber = $failedRow + 6;
+                    $sheet->getStyle("A$cellNumber:K$cellNumber")->getFill()
+                        ->setFillType(PHPExcel_Style_Fill::FILL_SOLID)
+                        ->getStartColor()->setRGB('ff0000');
+                }
+
+                foreach ($this->failedExemptedRows as $failedRow) {
+                    $cellNumber = $failedRow + 6;
+                    $sheet->getStyle("A$cellNumber:K$cellNumber")->getFill()
+                        ->setFillType(PHPExcel_Style_Fill::FILL_SOLID)
+                        ->getStartColor()->setRGB('0080ff');
+                }
+
+                $sheet->setMergeColumn(array(
+                    'columns' => array('A','B','C','D','E', 'F', 'G', 'H', 'I', 'J', 'K'),
+                    'rows' => array(
+                        array(4,5,6),
+                    )
+                ));
+
+                $sheet->fromArray($data, null, 'A1', false, false);
 
                 $start = 7;
-            foreach ($data as $datum) {
-                $cell = 'A' . $start;
-                $sheet->fromArray($datum, null, $cell);
-                $start+=35;
-            }
+                foreach ($data as $datum) {
+                    $cell = 'A' . $start;
+                    $sheet->fromArray($datum, null, $cell);
+                    $start += 35;
+                }
+            });
         });
     }
 }

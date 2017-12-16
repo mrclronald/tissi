@@ -18,6 +18,22 @@
             @endforeach
         </select>
     </div>
+    <div class="form-group">
+        <label for="areaOfOperation">Area of Operation</label>
+        <select class="form-control" name="areaOfOperation" id="areaOfOperation">
+            @foreach($areaOfOperations as $value => $areaOfOperation)
+                <option value="{{$value}}">{{$areaOfOperation}}</option>
+            @endforeach
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="teamOrAffiliation">Team/Affiliation</label>
+        <select class="form-control" name="teamOrAffiliation" id="teamOrAffiliation">
+            @foreach($teamOrAffiliations as $value => $teamOrAffiliation)
+                <option value="{{$value}}">{{$teamOrAffiliation}}</option>
+            @endforeach
+        </select>
+    </div>
     <button type="submit" class="btn btn-primary">Export</button>
     <input type="hidden" name="_token" value="{{ csrf_token() }}">
 </form>
