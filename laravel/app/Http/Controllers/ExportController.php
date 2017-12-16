@@ -207,6 +207,24 @@ class ExportController extends Controller
 
     private function getLtoSummaryReport($data)
     {
+        return Excel::create('test', function($excel) use($data) {
+
+            // Set the title
+            $excel->setTitle('Our new awesome title');
+
+            // Chain the setters
+            $excel->setCreator('Maatwebsite')
+            ->setCompany('Maatwebsite');
+
+            // Call them separately
+            $excel->setDescription('A demonstration to change the file properties');
+
+            $excel->sheet('First sheet', function($sheet) use($data) {
+                $sheet->loadView('demo', array('data' => $data));
+            });
+
+        })->export('xlsx');
+
         return Excel::create('LTO Summary Report', function ($excel) use ($data) {
                 // Set the title
             $excel->setTitle('SUMMARY REPORT OF ANTI-OVERLOADING OPERATION');
@@ -226,18 +244,6 @@ class ExportController extends Controller
                 $sheet->setAllBorders(PHPExcel_Style_Border::BORDER_THIN);
 
                 $sheet->setBorder('A3:K3', PHPExcel_Style_Border::BORDER_NONE);
-
-                // Add header
-                array_unshift($data, $this->ltoSummaryHeaders);
-
-                // Blank
-                array_unshift($data, ['blank']);
-
-                // informations
-                array_unshift($data, ['informations']);
-
-                // title
-                array_unshift($data, ['title']);
 
                 foreach ($this->failedRows as $failedRow) {
                     $cellNumber = $failedRow + 6;
@@ -259,11 +265,23 @@ class ExportController extends Controller
                         array(4,5,6),
                     )
                 ));
-
                 $sheet->fromArray($data, null, 'A1', false, false);
 
                 $start = 7;
+
                 foreach ($data as $datum) {
+                    // Add header
+                    array_unshift($datum, $this->ltoSummaryHeaders);
+
+                    // Blank
+                    array_unshift($datum, ['blank']);
+
+                    // informations
+                    array_unshift($datum, ['informations']);
+
+                    // title
+                    array_unshift($datum, ['title']);
+
                     $cell = 'A' . $start;
                     $sheet->fromArray($datum, null, $cell);
                     $start += 35;
