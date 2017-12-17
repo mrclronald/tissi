@@ -77,8 +77,10 @@
             .form-control option {
                  color: #000;
                  font-weight: bold;
-             }
-
+            }
+            .cell-header {
+                text-align:center !important;
+            }
         </style>
     </head>
     <body>

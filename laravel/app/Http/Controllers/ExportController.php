@@ -26,6 +26,21 @@ class ExportController extends Controller
         'gvw_or_axle' => ' GVW / AXLE' //computed
     ];
 
+    private $summaryHeaders = [
+        'date' => 'DATE',
+        'name' => 'NAME OF OWNER',
+        'address' => 'ADDRESS',
+        'trade_name' => 'TRADE NAME',
+        'plate_number' => 'PLATE NO.',
+        'type' => 'CODE NO./VEHICLE TYPE',
+        'gvw_as_weighed' => 'GVW AS WEIGHED',
+        'excess_load_axle' => '13,500/AXLE',
+        'excess_load_gvw' => 'GVW',
+        'excess_load_both' => 'BOTH AXLE-GVW',
+        'officer' => 'APPREHENDING OFFICER',
+        'confiscated_item' => 'CONFISCATED ITEM'
+    ];
+
     private $maxAllowableGvw = [
         '1-1' => '18000',
         '1-2' => '33300',
@@ -54,14 +69,13 @@ class ExportController extends Controller
     ];
 
     private $areaOfOperations = [
-        'pacheco' =>'R-10 PACHECO',
-        'lingahan' =>'R-11 LINGAHAN'
+        0 => 'ALL',
+        'MCARTHUR' => 'R-10 PACHECO'
     ];
 
     private $teamOrAffiliations = [
-        'ncr' =>'DPWH-NCR-NORTH MANILA ENGINEERING DISTRICT',
-        'region _1' =>'DPWH-REGION 1-NORTH VISAYA ENGINEERING DISTRICT',
-        'region _2' =>'DPWH-REGION 2-NORTH MINDANAO ENGINEERING DISTRICT'
+        'ALL',
+        0 => 'DPWH-NCR-NORTH MANILA ENGINEERING DISTRICT'
     ];
 
     private $axleLoadKeys = [
@@ -83,7 +97,6 @@ class ExportController extends Controller
 
     private $count = 1;
 
-
     public function index()
     {
         $directories = File::files(public_path('transactions'));
@@ -100,36 +113,115 @@ class ExportController extends Controller
     {
         $fromDate = $request->get('from_date');
         $toDate = $request->get('to_date');
-
+        $this->dateSelected = "$fromDate - $toDate";
         $areaOfOperation = $request->get('areaOfOperation');
         $teamOrAffiliation = $request->get('teamOrAffiliation');
+        $template = $request->get('template', 'lto');
 
         $transactions = Transaction::whereBetween('date', [$fromDate, $toDate])->get();
 
-        $chunkedResults = array_chunk($transactions->toArray(), 25);
-
-        $data = [];
-        foreach ($chunkedResults as $results) {
-            $data[] = $this->prepareData($results);
+        if ($areaOfOperation) {
+            $transactions->where('area_of_operation', $areaOfOperation);
         }
-        $summaryReport = $this->getSummaryReport($data);
 
-        $summaryReport->export('xls');
+        if ($teamOrAffiliation) {
+            $transactions->where('affiliation', $teamOrAffiliation);
+        }
+
+        $report = $this->getReport($transactions->toArray(), $areaOfOperation, $teamOrAffiliation, $template);
+
+        $report->export('xls');
     }
 
-    private function getSummaryReport($data, $template = 'lto')
+    private function getReport($rawTransactionsData, $areaOfOperation, $teamOrAffiliation, $template)
     {
-        return $this->getLtoSummaryReport($data);
+        switch ($template) {
+            case 'lto':
+                // we need chuncked results for lto for pagination
+                $chunkedResults = array_chunk($rawTransactionsData, 25);
+                $data = [];
+                foreach ($chunkedResults as $results) {
+                    $data[] = $this->applyLtoMappers($results, $this->ltoSummaryHeaders);
+                }
+
+                $summaryReport = $this->getLtoSummaryReport($data, $areaOfOperation, $teamOrAffiliation);
+                break;
+            default:
+                $data = $this->applyMappers($rawTransactionsData, $this->summaryHeaders);
+                $summaryReport = $this->getSummaryReport($data, $areaOfOperation, $teamOrAffiliation, $template);
+                break;
+        }
+
+        return $summaryReport;
     }
 
-    private function highlightRow($cells, $color)
-    {
-        $cells->setBackground($color);
-    }
-
-    private function applyMappers($transactionsData, $mappers = [])
+    private function applyMappers($transactionsData, $mappers)
     {
         $newData = [];
+
+        foreach ($transactionsData as $key => $data) {
+
+            foreach ($mappers as $k => $mapper) {
+
+                if ($k === 'type') {
+                    $newData[$key][$mapper] = 'TRUCK ' . $data[$k];
+                    continue;
+                }
+
+                if ($k === 'gvw_as_weighed') {
+                    $value = '';
+
+                    foreach ($this->axleLoadKeys as $axleLoadKey) {
+                        $axles[] = $data[$axleLoadKey];
+                    }
+
+                    if (count($axles)) {
+                        $value .= '13500 ';
+                    }
+
+
+                    if (!empty($data['gvw'])) {
+                        $value .= $this->maxAllowableGvw[$data['type']];
+                    }
+                    $newData[$key][$mapper] = $value;
+                    continue;
+                }
+
+                if ($k === 'excess_load_axle') {
+                    $newData[$key][$mapper] = 'test';
+                    continue;
+                }
+
+                if ($k === 'excess_load_gvw') {
+                    $newData[$key][$mapper] = 'test';
+                    continue;
+                }
+
+                if ($k === 'excess_load_both') {
+                    $newData[$key][$mapper] = 'test';
+                    continue;
+                }
+
+                if ($k === 'confiscated_item') {
+                    $newData[$key][$mapper] = !empty($data['plate_number'])
+                        ? '1 PLATE ' . $data['plate_number']
+                        : '';
+                    continue;
+                }
+
+                $newData[$key][$mapper] = isset($data[$k])
+                    ? $data[$k]
+                    : '';
+            }
+        }
+
+        return $newData;
+    }
+
+    private function applyLtoMappers($transactionsData, $mappers)
+    {
+        $newData = [];
+
         foreach ($transactionsData as $key => $data) {
             // We decalared this variable here so we can use it in gvw_or_axle in the loop
             $overWeightAxles = [];
@@ -140,9 +232,9 @@ class ExportController extends Controller
                 if ($k === 'transaction_number') {
                     continue;
                 }
-                
+
                 // axle_load
-                if ($k === 'axle_load' && ! empty($data['type'])) {
+                if ($k === 'axle_load' && !empty($data['type'])) {
                     $value = $data['gvw'];
 
                     foreach ($this->axleLoadKeys as $axleLoadKey) {
@@ -150,7 +242,7 @@ class ExportController extends Controller
                             $overWeightAxles[] = $data[$axleLoadKey];
                         }
                     }
-            
+
                     $newData[$key][$mapper] = $value
                         . (count($overWeightAxles) ? '/ (' : '')
                         . implode(',', $overWeightAxles)
@@ -159,7 +251,7 @@ class ExportController extends Controller
                 }
 
                 // gvw_or_axle
-                if ($k === 'gvw_or_axle' && ! empty($data['type'])) {
+                if ($k === 'gvw_or_axle' && !empty($data['type'])) {
 
                     $isGvwOverWeight = $data['gvw'] > $this->maxAllowableGvw[$data['type']];
 
@@ -174,16 +266,18 @@ class ExportController extends Controller
                     }
 
                     // If not empty, assign to failed array
-                    if (! empty($value)) {
+                    $exempted = false;
+                    if (!empty($value)) {
                         if (in_array($data['type'], ['12-2', '12-3'])) {
+                            $exempted = true;
                             $this->failedExemptedRows[] = $this->count;
                         } else {
                             $this->failedRows[] = $this->count;
                         }
                     }
-                    
+
                     $newData[$key][$mapper] = $value;
-                    $newData[$key][$mappers['remarks']] = ! empty($value) ? 'FAILED' : 'PASSED';
+                    $newData[$key][$mappers['remarks']] = !empty($value) && !$exempted ? 'FAILED' : 'PASSED';
                     continue;
                 }
 
@@ -198,95 +292,71 @@ class ExportController extends Controller
         return $newData;
     }
 
-    private function prepareData($rawData)
+    private function getSummaryReport($data, $areaOfOperation, $teamOrAffiliation, $template)
     {
-        $preparedData = $this->applyMappers($rawData, $this->ltoSummaryHeaders);
-
-        return $preparedData;
-    }
-
-    private function getLtoSummaryReport($data)
-    {
-        return Excel::create('test', function($excel) use($data) {
+        return Excel::create($this->templates[$template], function ($excel) use ($data, $areaOfOperation, $teamOrAffiliation, $template) {
 
             // Set the title
             $excel->setTitle('Our new awesome title');
 
             // Chain the setters
-            $excel->setCreator('Maatwebsite')
-            ->setCompany('Maatwebsite');
+            $excel->setCreator('Maatwebsite')->setCompany('Maatwebsite');
 
             // Call them separately
             $excel->setDescription('A demonstration to change the file properties');
 
-            $excel->sheet('First sheet', function($sheet) use($data) {
-                $sheet->loadView('demo', array('data' => $data));
+            $excel->sheet('sheet1', function ($sheet) use ($data, $areaOfOperation, $teamOrAffiliation, $template) {
+
+                $sheet->loadView("$template-summary-report", [
+                    'data' => $data,
+                    'headers' => $this->ltoSummaryHeaders,
+                    'date' => $this->dateSelected,
+                    'areaOfOperation' => $areaOfOperation,
+                    'teamOrAffiliaion' => $this->teamOrAffiliations[$teamOrAffiliation],
+                    'failedRows' => $this->failedRows,
+                    'failedExemptedRows' => $this->failedExemptedRows,
+                    'totalMVWeighed' => $this->count,
+                    'totalMVPassed' => $this->count - count($this->failedRows),
+                    'totalMVFailed' => count($this->failedRows),
+                ]);
+
+                $sheet->setFontFamily('Times New Roman');
             });
 
-        })->export('xlsx');
+        });
+    }
 
-        return Excel::create('LTO Summary Report', function ($excel) use ($data) {
-                // Set the title
-            $excel->setTitle('SUMMARY REPORT OF ANTI-OVERLOADING OPERATION');
+    private function getLtoSummaryReport($data, $areaOfOperation, $teamOrAffiliation)
+    {
+        return Excel::create('LTO Summary Report', function ($excel) use ($data, $areaOfOperation, $teamOrAffiliation) {
 
-            $excel->sheet('test', function ($sheet) use ($data) {
+            // Set the title
+            $excel->setTitle('Our new awesome title');
 
-                // Font family
+            // Chain the setters
+            $excel->setCreator('Maatwebsite')->setCompany('Maatwebsite');
+
+            // Call them separately
+            $excel->setDescription('A demonstration to change the file properties');
+
+            $excel->sheet('sheet1', function ($sheet) use ($data, $areaOfOperation, $teamOrAffiliation) {
+
+                $sheet->loadView('lto-summary-report', [
+                    'data' => $data,
+                    'headers' => $this->ltoSummaryHeaders,
+                    'date' => $this->dateSelected,
+                    'areaOfOperation' => $areaOfOperation,
+                    'teamOrAffiliaion' => $this->teamOrAffiliations[$teamOrAffiliation],
+                    'failedRows' => $this->failedRows,
+                    'failedExemptedRows' => $this->failedExemptedRows,
+                    'totalMVWeighed' => $this->count,
+                    'totalMVPassed' => $this->count - count($this->failedRows),
+                    'totalMVFailed' => count($this->failedRows),
+                ]);
                 $sheet->setFontFamily('Times New Roman');
 
-                // Font size
-                $sheet->setFontSize(11);
-
-                // Font bold
-                $sheet->setFontBold(false);
-
-
-                $sheet->setAllBorders(PHPExcel_Style_Border::BORDER_THIN);
-
-                $sheet->setBorder('A3:K3', PHPExcel_Style_Border::BORDER_NONE);
-
-                foreach ($this->failedRows as $failedRow) {
-                    $cellNumber = $failedRow + 6;
-                    $sheet->getStyle("A$cellNumber:K$cellNumber")->getFill()
-                        ->setFillType(PHPExcel_Style_Fill::FILL_SOLID)
-                        ->getStartColor()->setRGB('ff0000');
-                }
-
-                foreach ($this->failedExemptedRows as $failedRow) {
-                    $cellNumber = $failedRow + 6;
-                    $sheet->getStyle("A$cellNumber:K$cellNumber")->getFill()
-                        ->setFillType(PHPExcel_Style_Fill::FILL_SOLID)
-                        ->getStartColor()->setRGB('0080ff');
-                }
-
-                $sheet->setMergeColumn(array(
-                    'columns' => array('A','B','C','D','E', 'F', 'G', 'H', 'I', 'J', 'K'),
-                    'rows' => array(
-                        array(4,5,6),
-                    )
-                ));
-                $sheet->fromArray($data, null, 'A1', false, false);
-
-                $start = 7;
-
-                foreach ($data as $datum) {
-                    // Add header
-                    array_unshift($datum, $this->ltoSummaryHeaders);
-
-                    // Blank
-                    array_unshift($datum, ['blank']);
-
-                    // informations
-                    array_unshift($datum, ['informations']);
-
-                    // title
-                    array_unshift($datum, ['title']);
-
-                    $cell = 'A' . $start;
-                    $sheet->fromArray($datum, null, $cell);
-                    $start += 35;
-                }
             });
+
         });
     }
 }
