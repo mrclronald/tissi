@@ -1,7 +1,7 @@
 <table>
     @foreach($data as $key=>$datum)
         <tr>
-            <td height="20" colspan="11" style="text-align: center; font-weight: bold; font-family: 'Times New Roman';">
+            <td height="20" colspan="11" style="text-align: center; font-weight: bold;font-size: 15;">
                 SUMMARY REPORT OF ANTI-OVERLOADING OPERATION
             </td>
         </tr>
@@ -16,56 +16,56 @@
             <td colspan="11"></td>
         </tr>
         <tr>
-            <td height="45" width="6" valign="middle"
-                style="border: 1px solid #000;wrap-text:true;font-weight: bold;text-align: center">
+            <td height="45" valign="middle"
+                style="font-size: 11;border: 1px solid #000;wrap-text:true;font-weight: bold;text-align: center">
                 NO.
             </td>
 
-            <td width="12" valign="middle"
-                style="border: 1px solid #000;wrap-text:true;;font-weight: bold;text-align: center">MV
+            <td valign="middle"
+                style="font-size: 11;border: 1px solid #000;wrap-text:true;;font-weight: bold;text-align: center">MV
                 PLATE NO.
             </td>
 
-            <td width="14" valign="middle"
-                style="border: 1px solid #000;wrap-text:true;font-weight: bold;text-align: center">MV
+            <td valign="middle"
+                style="font-size: 9;border: 1px solid #000;wrap-text:true;font-weight: bold;text-align: center">MV
                 TYPE
                 (Private/ For-Hire/ Gov.t' / Diplomat)
             </td>
 
-            <td width="13" valign="middle"
-                style="border: 1px solid #000;wrap-text:true;font-weight: bold;text-align: center">MV
+            <td valign="middle"
+                style="font-size: 9;border: 1px solid #000;wrap-text:true;font-weight: bold;text-align: center">MV
                 TYPE (Bus/
                 Jeepney/ Van/ Truck etc.)
             </td>
 
-            <td width="19" valign="middle" colspan="2"
-                style="border: 1px solid #000;wrap-text:true;font-weight: bold;text-align: center">
+            <td valign="middle" colspan="2"
+                style="font-size: 11;border: 1px solid #000;wrap-text:true;font-weight: bold;text-align: center">
                 TRADE NAME
             </td>
 
-            <td width="9" valign="middle"
-                style="border: 1px solid #000;wrap-text:true; font-weight: bold;text-align: center">YEAR
+            <td valign="middle"
+                style="font-size: 11;border: 1px solid #000;wrap-text:true; font-weight: bold;text-align: center">YEAR
                 MODEL
             </td>
 
-            <td width="12.29" valign="middle"
-                style="border: 1px solid #000;wrap-text:true; font-weight: bold;text-align: center">GVW/ Axle
+            <td valign="middle"
+                style="font-size: 11;border: 1px solid #000;wrap-text:true; font-weight: bold;text-align: center">GVW/ Axle
                 Load
             </td>
 
-            <td width="11.71" valign="middle"
-                style="border: 1px solid #000;wrap-text:true; font-weight: bold;text-align: center">REMARKS
+            <td  valign="middle"
+                style="font-size: 10;border: 1px solid #000;wrap-text:true; font-weight: bold;text-align: center">REMARKS
                 (Passed or
                 Failed)
             </td>
 
-            <td width="19" valign="middle"
-                style="border: 1px solid #000;wrap-text:true; font-weight: bold;text-align: center">ACTION
+            <td  valign="middle"
+                style="font-size: 9;border: 1px solid #000;wrap-text:true; font-weight: bold;text-align: center">ACTION
                 TAKEN CONFISCATED
                 ITEMS/ IMPOUNDED MV
             </td>
-            <td width="12.29" valign="middle"
-                style="border: 1px solid #000;wrap-text:true;font-weight: bold;text-align: center">GVW /
+            <td valign="middle"
+                style="font-size: 11;border: 1px solid #000;wrap-text:true;font-weight: bold;text-align: center">GVW /
                 AXLE
             </td>
         </tr>
@@ -76,13 +76,13 @@
             @elseif(in_array($row['NO.'], $failedExemptedRows))
                     background-color: #00b0f0;
             @endif">
-                @foreach ($row as $header => $column)
+                @foreach ($row as $header => $value)
                     @if($header === 'TRADE NAME')
-                        <td colspan="2" style="border: 1px solid #000;">{{$column}}</td>
+                        <td colspan="2" style="border: 1px solid #000;">{{$value}}</td>
                     @elseif(empty($header))
 
                     @else
-                        <td style="border: 1px solid #000">{{$column}}</td>
+                        <td style="border: 1px solid #000">{{$value}}</td>
                     @endif
                 @endforeach
             </tr>

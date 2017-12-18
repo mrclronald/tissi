@@ -155,12 +155,24 @@ class ExportController extends Controller
         return $summaryReport;
     }
 
+    private function getExcess($a, $b)
+    {
+        if ($a < $b) {
+            return '';
+        }
+
+        return $a - $b;
+    }
+
     private function applyMappers($transactionsData, $mappers)
     {
         $newData = [];
 
         foreach ($transactionsData as $key => $data) {
 
+            $hasAxle = false;
+            $hasGvw = false;
+            $axles = [];
             foreach ($mappers as $k => $mapper) {
 
                 if ($k === 'type') {
@@ -176,34 +188,43 @@ class ExportController extends Controller
                     }
 
                     if (count($axles)) {
+                        $hasAxle = true;
                         $value .= '13500 ';
                     }
 
 
                     if (!empty($data['gvw'])) {
+                        $hasGvw = true;
                         $value .= $this->maxAllowableGvw[$data['type']];
                     }
+
                     $newData[$key][$mapper] = $value;
                     continue;
                 }
 
                 if ($k === 'excess_load_axle') {
-                    $newData[$key][$mapper] = 'test';
+                    $newData[$key][$mapper] = $hasAxle && !$hasGvw ? $this->getExcess(array_sum($axles), 13500) : '';
                     continue;
                 }
 
                 if ($k === 'excess_load_gvw') {
-                    $newData[$key][$mapper] = 'test';
+                    $newData[$key][$mapper] = !$hasAxle && $hasGvw
+                        ? $this->getExcess($data['gvw'] , $this->maxAllowableGvw[$data['type']])
+                        : '';
                     continue;
                 }
 
                 if ($k === 'excess_load_both') {
-                    $newData[$key][$mapper] = 'test';
+                    $newData[$key][$mapper] = $hasAxle && $hasGvw
+                        ? $this->getExcess(array_sum($axles), 13500)
+                            . ' ' .
+                            $this->getExcess($data['gvw'] , $this->maxAllowableGvw[$data['type']])
+                        : '';
                     continue;
                 }
 
                 if ($k === 'confiscated_item') {
-                    $newData[$key][$mapper] = !empty($data['plate_number'])
+                    $newData[$key][$mapper] = !empty(trim($data['plate_number']))
                         ? '1 PLATE ' . $data['plate_number']
                         : '';
                     continue;
@@ -320,7 +341,36 @@ class ExportController extends Controller
                     'totalMVFailed' => count($this->failedRows),
                 ]);
 
-                $sheet->setFontFamily('Times New Roman');
+                $sheet->setHeight([
+                    3 => 20,
+                    4 => 20
+                ]);
+
+                $sheet->setWidth([
+                    'A' => 6,
+                    'B' => 12,
+                    'C' => 14,
+                    'D' => 13.4,
+                    'E' => 19.71,
+                    'F' => 8.57,
+                    'G' => 9,
+                    'H' => 12.29,
+                    'I' => 11.71,
+                    'J' => 19,
+                    'K' => 12.29,
+                ]);
+
+                $sheet->setStyle([
+                    'alignment' => [
+                        'horizontal' => \PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
+                        'vertical' => \PHPExcel_Style_Alignment::VERTICAL_CENTER,
+                        'wrap' => true
+                    ],
+                    'font' => [
+                        'name' => 'Calibri',
+                        'size' => 11,
+                    ]
+                ]);
             });
 
         });
@@ -353,7 +403,29 @@ class ExportController extends Controller
                     'totalMVPassed' => $this->count - count($this->failedRows),
                     'totalMVFailed' => count($this->failedRows),
                 ]);
-                $sheet->setFontFamily('Times New Roman');
+
+                $sheet->getStyle('G2')->getAlignment()->setShrinkToFit(true);
+
+                $sheet->setWidth([
+                    'A' => 6,
+                    'B' => 12,
+                    'C' => 14,
+                    'D' => 13.4,
+                    'E' => 19.71,
+                    'F' => 8.57,
+                    'G' => 9,
+                    'H' => 12.29,
+                    'I' => 11.71,
+                    'J' => 19,
+                    'K' => 12.29,
+                ]);
+
+                $sheet->setStyle([
+                    'font' => [
+                        'name' => 'Times New Roman',
+                        'size' => 11,
+                    ]
+                ]);
 
             });
 

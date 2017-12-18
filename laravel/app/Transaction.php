@@ -16,4 +16,9 @@ class Transaction extends Model
         'date',
         'created_at'
     ];
+
+    public function upload()
+    {
+        return $this->belongsTo(Uploads::class);
+    }
 }

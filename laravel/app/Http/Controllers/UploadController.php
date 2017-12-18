@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Transaction;
+use App\Uploads;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -14,6 +15,7 @@ class UploadController extends Controller
      * @var array
      */
     private $ltoSummaryHeaders = [
+        'upload_name' => 'upload_name',
         'vehicle_class_id' => 'plate_number',
         'vehicle_class_name' => 'type',
         'vehicle_weight' => 'gvw',
@@ -27,7 +29,7 @@ class UploadController extends Controller
         'axle_8_weight' => 'axle_load_8',
         'site_name' => 'area_of_operation',
         'lane_id' => 'affiliation',
-        'date' => 'date',
+        'date' => 'date'
     ];
 
     public function index()
@@ -46,7 +48,7 @@ class UploadController extends Controller
     private function process($fileSheet)
     {
         // Create filename
-        $fileSheetName = time() . '.' . $fileSheet->getClientOriginalExtension();
+        $fileSheetName = time() . '_' . $fileSheet->getClientOriginalName();
 
         // Create path public/transactions/
         $path = public_path('transactions') . '/' . $fileSheetName;
@@ -57,6 +59,10 @@ class UploadController extends Controller
 
         $dataImported = [];
         if (!empty($data) && $data->count()) {
+
+            $upload = new Uploads;
+            $upload->name = $fileSheetName;
+            $upload->save();
             /**
              * $rows[0] => array:14 [
              *       "site_name" => null
@@ -80,6 +86,7 @@ class UploadController extends Controller
             foreach ($rows as $key => $row) {
                 // We are inside a  row
                 // $row = ["site_name" => null, "lane_id" => 0.0 =...]
+                $dataImported[$key]['upload_id'] = $upload->id;
                 foreach ($this->ltoSummaryHeaders as $k => $mapper) {
 
                     // eg. $k => 'vehicle_class_id'
@@ -121,14 +128,14 @@ class UploadController extends Controller
             }
         }
 
-        $this->saveInDb($dataImported);
+        $this->saveInDb($upload, $dataImported);
 
         return $path;
     }
 
-    private function saveInDb($dataImported)
+    private function saveInDb(Uploads $upload, $dataImported)
     {
-        Transaction::insert(array_slice($dataImported, 0, 100));
+        $upload->transactions()->createMany($dataImported);
     }
 
 }
