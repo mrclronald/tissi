@@ -88,7 +88,7 @@
             </tr>
         @endforeach
 
-        <tr>
+        <tr style="border: none;">
             <td>SUMMARY:</td>
             <td></td>
             <td></td>
@@ -101,32 +101,32 @@
             <td></td>
             <td></td>
         </tr>
-        <tr>
+        <tr style="border: none;">
             <td colspan="11"></td>
         </tr>
         <tr>
-            <td style="font-weight: bold;">TOTAL MV WEIGHED :</td>
-            <td></td>
-            <td style="font-weight: bold;">{{$totalMVWeighed}}</td>
-            <td style="font-weight: bold;" colspan="8"></td>
+            <td style="border:none;font-size:8;font-weight: bold;">TOTAL MV WEIGHED :</td>
+            <td style="border:none;"></td>
+            <td style="border:none;font-weight: bold;">{{$totalMVWeighed}}</td>
+            <td style="border:none;font-weight: bold;" colspan="8"></td>
         </tr>
         <tr>
-            <td style="font-weight: bold;">NO. OF MV PASSED :</td>
+            <td style="font-size:9;font-weight: bold;">NO. OF MV PASSED :</td>
             <td></td>
             <td style="font-weight: bold;">{{$totalMVPassed}}</td>
             <td></td>
-            <td colspan="2" style="border-top: 1px solid #000; font-weight: bold;">(Signature Over Printed Name/ Date)
+            <td colspan="3" style="border-top: 1px solid #000; font-weight: bold;">(Signature Over Printed Name/ Date)
             </td>
             <td></td>
             <td colspan="3" style="border-top: 1px solid #000; font-weight: bold;">(Signature Over Printed Name/ Date)
             </td>
         </tr>
         <tr>
-            <td style="font-weight: bold;">NO. OF MV FAILED :</td>
+            <td style="font-size:9;font-weight: bold;">NO. OF MV FAILED :</td>
             <td></td>
             <td style="font-weight: bold;">{{$totalMVFailed}}</td>
             <td></td>
-            <td style="font-weight: bold;" colspan="2">Recorder</td>
+            <td style="font-weight: bold;" colspan="3">Recorder</td>
             <td></td>
             <td style="font-weight: bold;" colspan="3">TEAM LEADER</td>
         </tr>

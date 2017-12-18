@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Transaction;
+use App\Uploads;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Maatwebsite\Excel\Facades\Excel;
 use PHPExcel_Style_Border;
@@ -100,8 +102,10 @@ class ExportController extends Controller
     public function index()
     {
         $directories = File::files(public_path('transactions'));
+        $uploads = Uploads::all();
 
         return view('export', [
+            'uploads' => $uploads,
             'directories' => $directories,
             'templates' => $this->templates,
             'areaOfOperations' => $this->areaOfOperations,
@@ -117,18 +121,24 @@ class ExportController extends Controller
         $areaOfOperation = $request->get('areaOfOperation');
         $teamOrAffiliation = $request->get('teamOrAffiliation');
         $template = $request->get('template', 'lto');
+        $uploadId = $request->get('upload', 0);
 
-        $transactions = Transaction::whereBetween('date', [$fromDate, $toDate])->get();
+        $transactionQuery = DB::table('transactions')
+            ->whereBetween('date', [$fromDate, $toDate]);
 
         if ($areaOfOperation) {
-            $transactions->where('area_of_operation', $areaOfOperation);
+            $transactionQuery->where('area_of_operation', $areaOfOperation);
         }
 
         if ($teamOrAffiliation) {
-            $transactions->where('affiliation', $teamOrAffiliation);
+            $transactionQuery->where('affiliation', $teamOrAffiliation);
         }
 
-        $report = $this->getReport($transactions->toArray(), $areaOfOperation, $teamOrAffiliation, $template);
+        if (is_numeric($uploadId) && $uploadId) {
+            $transactionQuery->where('upload_id', $uploadId);
+        }
+
+        $report = $this->getReport($transactionQuery->get(), $areaOfOperation, $teamOrAffiliation, $template);
 
         $report->export('xls');
     }
@@ -138,7 +148,7 @@ class ExportController extends Controller
         switch ($template) {
             case 'lto':
                 // we need chuncked results for lto for pagination
-                $chunkedResults = array_chunk($rawTransactionsData, 25);
+                $chunkedResults = array_chunk($rawTransactionsData->toArray(), 25);
                 $data = [];
                 foreach ($chunkedResults as $results) {
                     $data[] = $this->applyLtoMappers($results, $this->ltoSummaryHeaders);
@@ -176,7 +186,7 @@ class ExportController extends Controller
             foreach ($mappers as $k => $mapper) {
 
                 if ($k === 'type') {
-                    $newData[$key][$mapper] = 'TRUCK ' . $data[$k];
+                    $newData[$key][$mapper] = 'TRUCK ' . $data->{$k};
                     continue;
                 }
 
@@ -184,7 +194,7 @@ class ExportController extends Controller
                     $value = '';
 
                     foreach ($this->axleLoadKeys as $axleLoadKey) {
-                        $axles[] = $data[$axleLoadKey];
+                        $axles[] = $data->{$axleLoadKey};
                     }
 
                     if (count($axles)) {
@@ -193,9 +203,9 @@ class ExportController extends Controller
                     }
 
 
-                    if (!empty($data['gvw'])) {
+                    if (!empty($data->gvw)) {
                         $hasGvw = true;
-                        $value .= $this->maxAllowableGvw[$data['type']];
+                        $value .= $this->maxAllowableGvw[$data->type];
                     }
 
                     $newData[$key][$mapper] = $value;
@@ -203,13 +213,13 @@ class ExportController extends Controller
                 }
 
                 if ($k === 'excess_load_axle') {
-                    $newData[$key][$mapper] = $hasAxle && !$hasGvw ? $this->getExcess(array_sum($axles), 13500) : '';
+                    $newData[$key][$mapper] = $hasAxle ? $this->getExcess(array_sum($axles), 13500) : '';
                     continue;
                 }
 
                 if ($k === 'excess_load_gvw') {
                     $newData[$key][$mapper] = !$hasAxle && $hasGvw
-                        ? $this->getExcess($data['gvw'] , $this->maxAllowableGvw[$data['type']])
+                        ? $this->getExcess($data->gvw , $this->maxAllowableGvw[$data->type])
                         : '';
                     continue;
                 }
@@ -218,20 +228,19 @@ class ExportController extends Controller
                     $newData[$key][$mapper] = $hasAxle && $hasGvw
                         ? $this->getExcess(array_sum($axles), 13500)
                             . ' ' .
-                            $this->getExcess($data['gvw'] , $this->maxAllowableGvw[$data['type']])
+                            $this->getExcess($data->gvw , $this->maxAllowableGvw[$data->type])
                         : '';
                     continue;
                 }
 
                 if ($k === 'confiscated_item') {
-                    $newData[$key][$mapper] = !empty(trim($data['plate_number']))
-                        ? '1 PLATE ' . $data['plate_number']
-                        : '';
+                    $newData[$key][$mapper] = !empty(trim($data->plate_number))
+                        ? '1 PLATE ' . $data->plate_number                         : '';
                     continue;
                 }
 
-                $newData[$key][$mapper] = isset($data[$k])
-                    ? $data[$k]
+                $newData[$key][$mapper] = isset($data->{$k})
+                    ? $data->{$k}
                     : '';
             }
         }
@@ -255,12 +264,12 @@ class ExportController extends Controller
                 }
 
                 // axle_load
-                if ($k === 'axle_load' && !empty($data['type'])) {
-                    $value = $data['gvw'];
+                if ($k === 'axle_load' && !empty($data->type)) {
+                    $value = $data->gvw;
 
                     foreach ($this->axleLoadKeys as $axleLoadKey) {
-                        if ($data[$axleLoadKey] > 13500) {
-                            $overWeightAxles[] = $data[$axleLoadKey];
+                        if ($data->{$axleLoadKey} > 13500) {
+                            $overWeightAxles[] = $data->{$axleLoadKey};
                         }
                     }
 
@@ -272,9 +281,9 @@ class ExportController extends Controller
                 }
 
                 // gvw_or_axle
-                if ($k === 'gvw_or_axle' && !empty($data['type'])) {
+                if ($k === 'gvw_or_axle' && !empty($data->type)) {
 
-                    $isGvwOverWeight = $data['gvw'] > $this->maxAllowableGvw[$data['type']];
+                    $isGvwOverWeight = $data->gvw > $this->maxAllowableGvw[$data->type ];
 
                     if ($isGvwOverWeight && count($overWeightAxles)) {
                         // If both is/has overweight
@@ -289,7 +298,7 @@ class ExportController extends Controller
                     // If not empty, assign to failed array
                     $exempted = false;
                     if (!empty($value)) {
-                        if (in_array($data['type'], ['12-2', '12-3'])) {
+                        if (in_array($data->type, ['12-2', '12-3'])) {
                             $exempted = true;
                             $this->failedExemptedRows[] = $this->count;
                         } else {
@@ -302,8 +311,8 @@ class ExportController extends Controller
                     continue;
                 }
 
-                $newData[$key][$mapper] = isset($data[$k])
-                    ? $data[$k]
+                $newData[$key][$mapper] = isset($data->{$k})
+                    ? $data->{$k}
                     : '';
             }
 

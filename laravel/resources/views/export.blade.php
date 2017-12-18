@@ -11,6 +11,15 @@
         <input class="form-control" type="text" name="to_date" />
     </div>
     <div class="form-group">
+        <label for="upload">From Upload</label>
+        <select name="upload" id="" class="form-control">
+            <option value="">ALL</option>
+            @foreach($uploads as $upload)
+                <option value="{{$upload->id}}">{{$upload->name}}</option>
+            @endforeach
+        </select>
+    </div>
+    <div class="form-group">
         <label for="template">Template</label>
         <select class="form-control" name="template" id="template">
             @foreach($templates as $value => $template)

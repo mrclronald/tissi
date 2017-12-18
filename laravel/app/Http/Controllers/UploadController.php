@@ -51,7 +51,7 @@ class UploadController extends Controller
         $fileSheetName = time() . '_' . $fileSheet->getClientOriginalName();
 
         // Create path public/transactions/
-        $path = public_path('transactions') . '/' . $fileSheetName;
+//        $fileSheet->move(public_path('transactions'), $fileSheet->getClientOriginalName());
 
         $data = Excel::load($fileSheet->getRealPath(), function ($reader) {})->get(
             array_keys($this->ltoSummaryHeaders)
@@ -61,7 +61,7 @@ class UploadController extends Controller
         if (!empty($data) && $data->count()) {
 
             $upload = new Uploads;
-            $upload->name = $fileSheetName;
+            $upload->name = $fileSheetName ;
             $upload->save();
             /**
              * $rows[0] => array:14 [
@@ -129,8 +129,6 @@ class UploadController extends Controller
         }
 
         $this->saveInDb($upload, $dataImported);
-
-        return $path;
     }
 
     private function saveInDb(Uploads $upload, $dataImported)
