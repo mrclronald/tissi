@@ -2,14 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Transaction;
 use App\Uploads;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Maatwebsite\Excel\Facades\Excel;
-use PHPExcel_Style_Border;
-use PHPExcel_Style_Fill;
 
 class ExportController extends Controller
 {
@@ -72,12 +69,57 @@ class ExportController extends Controller
 
     private $areaOfOperations = [
         0 => 'ALL',
-        'MCARTHUR' => 'R-10 PACHECO'
+        'S04074LZ' => 'Manila North Rd',
+        'S00034LZ' => 'Manila North Rd',
+        'S04781LZ' => 'Ilocos Norte-Apayao Rd',
+        'S00186LZ' => 'Manila North Rd',
+        'S00166LZ' => 'Manila North Rd',
+        'S00253LZ' => 'Pangasinan-Tarlac Rd',
+        'S04161LZ' => 'Cagayan Valley Rd',
+        'S00636LZ' => 'Manila North Rd',
+        'S00731LZ' => 'Daang Maharlika (LZ)',
+        'S04192LZ' => 'Cordonn-Aurora Bdry Rd (Isabela Brdy-Jct Dumabato',
+        'S01153MN' => 'Liloy-Ipil Rd',
+        'S01085MN' => 'Jct Aurora-Ozamis City Rd',
+        'S01039MN' => 'Dipolog-Oroquieta National Rd',
+        'S01315MN' => 'Pagadian City-Zamboanga City Rd',
+        'S01316MN' => 'Dipolog-Oroquieta National Rd',
+        'S00485MN' => 'Butuan City-Cagayan De Oro City-Iligan City Rd',
+        'S01245MN' => 'Butuan City-Cagayan De Oro City-Iligan City Rd',
+        'S00519MN' => 'Butuan City-Cagayan De Oro City-Iligan City Rd',
+        'S00639MN' => 'Sayre Highway',
+        'S00339MN' => 'Daang Maharlika (Surigao-Agusan Sect)',
+        'S00446MN' => 'Daang Maharlika (Surigao-Davao Sect)',
+        'S00421MN' => 'Butuan City-Cagayan De Oro City-Iligan City Road',
+        'S00300MN' => 'Surigao-Davao Coastal Rd'
     ];
 
     private $teamOrAffiliations = [
         'ALL',
-        0 => 'DPWH-NCR-NORTH MANILA ENGINEERING DISTRICT'
+        1 => 'DPWH-Region 1-Ilocos Sur 1st District Engineering Office',
+        2 => 'DPWH-Region 1-Ilocos Norte 1st District Engineering Offifce',
+        3 => 'DPWH-Region 1-Ilocos Norte 2nd District Engineering Office',
+        4 => 'DPWH-Region 1-La Union 1st District Engineering Office',
+        5 => 'DPWH-Region 1-La Union 2nd District Engineering Office',
+        6 => 'DPWH-Region 1-Pangasinan 2nd District Engineering Office',
+        7 => 'DPWH-Region 2-Cagayan 3rd District Engineering Office',
+        8 => 'DPWH-Region 2-Cagayan 2nd District Engineering Office',
+        9 => 'DPWH-Region 2-Isabela 1st District Engineering Office',
+        10=> 'DPWH-Region 2-Quirinino District Engineering Office',
+        11=> 'DPWH-Region 4-Zamboanga Del Norte 2nd District Engineering Office',
+        12=> 'DPWH-Region 4-Zamboanga Del Sur 1st District Engineering Office',
+        13=> 'DPWH-Region 4-Zamboanga Del Norte 1st District Engineering Office',
+        14=> 'DPWH-Region 4-Zamboanga City District Engineering Office',
+        15=> 'DPWH-Region 4-Zamboanga Del Norte 3rd District Engineering Office',
+        16=> 'DPWH-Region 5-Misamis Oriental 1st District Engineering Office',
+        17=> 'DPWH-Region 5-Cagayan De Ora City 2nd District Engineering Office',
+        18=> 'DPWH-Region 5-Misamis Oriental 2nd District Engineering Office',
+        19=> 'DPWH-Region 5-Bukidnon 1st District Engineering Office',
+        20=> 'DPWH-Region 8-Surigao Del Norte 1st District Engineering Office',
+        21=> 'DPWH-Region 8-Agusan Del Sur 1st District Engineering Office',
+        22=> 'DPWH-Region 8-Butuan City District Engineering Office',
+        23=> 'DPWH-Region 8-Surigao Del Sur 2nd District Engineering Office'
+
     ];
 
     private $axleLoadKeys = [
@@ -94,8 +136,6 @@ class ExportController extends Controller
     private $failedRows = [];
 
     private $failedExemptedRows = [];
-
-    private $filename;
 
     private $count = 1;
 
@@ -145,10 +185,9 @@ class ExportController extends Controller
 
     private function getReport($rawTransactionsData, $areaOfOperation, $teamOrAffiliation, $template)
     {
+        $chunkedResults = array_chunk(array_slice($rawTransactionsData->toArray(), 0, 100), 25);
         switch ($template) {
             case 'lto':
-                // we need chuncked results for lto for pagination
-                $chunkedResults = array_chunk($rawTransactionsData->toArray(), 25);
                 $data = [];
                 foreach ($chunkedResults as $results) {
                     $data[] = $this->applyLtoMappers($results, $this->ltoSummaryHeaders);
@@ -157,7 +196,10 @@ class ExportController extends Controller
                 $summaryReport = $this->getLtoSummaryReport($data, $areaOfOperation, $teamOrAffiliation);
                 break;
             default:
-                $data = $this->applyMappers($rawTransactionsData, $this->summaryHeaders);
+                $data = [];
+                foreach ($chunkedResults as $results) {
+                    $data[] = $this->applyMappers($results, $this->summaryHeaders);
+                }
                 $summaryReport = $this->getSummaryReport($data, $areaOfOperation, $teamOrAffiliation, $template);
                 break;
         }
@@ -182,7 +224,7 @@ class ExportController extends Controller
 
             $hasAxle = false;
             $hasGvw = false;
-            $axles = [];
+            $positiveDifferencesOfAxles = [];
             foreach ($mappers as $k => $mapper) {
 
                 if ($k === 'type') {
@@ -194,26 +236,32 @@ class ExportController extends Controller
                     $value = '';
 
                     foreach ($this->axleLoadKeys as $axleLoadKey) {
-                        $axles[] = $data->{$axleLoadKey};
+                        if (($data->{$axleLoadKey} - 13500) > 0){
+                            $positiveDifferencesOfAxles[] = $data->{$axleLoadKey} - 13500;
+                        }
+
                     }
 
-                    if (count($axles)) {
+                    if (count($positiveDifferencesOfAxles)) {
                         $hasAxle = true;
                         $value .= '13500 ';
                     }
 
 
-                    if (!empty($data->gvw)) {
-                        $hasGvw = true;
-                        $value .= $this->maxAllowableGvw[$data->type];
+                    if (!empty($data->gvw) && !empty($data->type)) {
+                        if ($data->gvw > $this->maxAllowableGvw[$data->type]) {
+                            $hasGvw = true;
+                            $value .= $this->maxAllowableGvw[$data->type];
+                        }
                     }
 
                     $newData[$key][$mapper] = $value;
                     continue;
+
                 }
 
                 if ($k === 'excess_load_axle') {
-                    $newData[$key][$mapper] = $hasAxle ? $this->getExcess(array_sum($axles), 13500) : '';
+                    $newData[$key][$mapper] = $hasAxle && !$hasGvw ? array_sum($positiveDifferencesOfAxles) : '';
                     continue;
                 }
 
@@ -226,7 +274,7 @@ class ExportController extends Controller
 
                 if ($k === 'excess_load_both') {
                     $newData[$key][$mapper] = $hasAxle && $hasGvw
-                        ? $this->getExcess(array_sum($axles), 13500)
+                        ? array_sum($positiveDifferencesOfAxles)
                             . ' ' .
                             $this->getExcess($data->gvw , $this->maxAllowableGvw[$data->type])
                         : '';
@@ -298,7 +346,7 @@ class ExportController extends Controller
                     // If not empty, assign to failed array
                     $exempted = false;
                     if (!empty($value)) {
-                        if (in_array($data->type, ['12-2', '12-3'])) {
+                        if (in_array($data->type, $this->maxAllowableGvwExempted)) {
                             $exempted = true;
                             $this->failedExemptedRows[] = $this->count;
                         } else {
@@ -341,7 +389,7 @@ class ExportController extends Controller
                     'data' => $data,
                     'headers' => $this->ltoSummaryHeaders,
                     'date' => $this->dateSelected,
-                    'areaOfOperation' => $areaOfOperation,
+                    'areaOfOperation' => $this->areaOfOperations[$areaOfOperation],
                     'teamOrAffiliaion' => $this->teamOrAffiliations[$teamOrAffiliation],
                     'failedRows' => $this->failedRows,
                     'failedExemptedRows' => $this->failedExemptedRows,
@@ -404,7 +452,7 @@ class ExportController extends Controller
                     'data' => $data,
                     'headers' => $this->ltoSummaryHeaders,
                     'date' => $this->dateSelected,
-                    'areaOfOperation' => $areaOfOperation,
+                    'areaOfOperation' => $this->areaOfOperations[$areaOfOperation],
                     'teamOrAffiliaion' => $this->teamOrAffiliations[$teamOrAffiliation],
                     'failedRows' => $this->failedRows,
                     'failedExemptedRows' => $this->failedExemptedRows,
